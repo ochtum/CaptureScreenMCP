@@ -28,18 +28,33 @@ Windows向けの画面キャプチャ用MCPサーバーです。<br>
 ## セットアップ（Windows）
 
 ```powershell
-cd C:\junichi.takeda\source\CaptureScreenMCP
+cd C:\MCP-PATH\CaptureScreenMCP
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+```
+
+## セットアップ（WSL）
+
+```bash
+cd /mnt/c/jMCP-PATH/CaptureScreenMCP
+/mnt/c/Windows/py.exe -3 -m venv .venv
+./.venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
 
 ## 実行（Windows）
 
 ```powershell
-cd C:\junichi.takeda\source\CaptureScreenMCP
+cd C:\MCP-PATH\CaptureScreenMCP
 .\.venv\Scripts\Activate.ps1
 python server.py
+```
+
+## 実行（WSL）
+
+```bash
+cd /mnt/c/jMCP-PATH/CaptureScreenMCP
+./.venv/Scripts/python.exe server.py
 ```
 
 ## Codex MCP設定
@@ -48,8 +63,8 @@ python server.py
 
 ```toml
 [mcp_servers.capture-screen]
-command = "/mnt/c/junichi.takeda/source/CaptureScreenMCP/.venv/Scripts/python.exe"
-args = ["C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"]
+command = "/mnt/c/MCP-PATH/CaptureScreenMCP/.venv/Scripts/python.exe"
+args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
 startup_timeout_sec = 30
 ```
 
@@ -57,8 +72,8 @@ startup_timeout_sec = 30
 
 ```toml
 [mcp_servers.capture-screen]
-command = "C:\\junichi.takeda\\source\\CaptureScreenMCP\\.venv\\Scripts\\python.exe"
-args = ["C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"]
+command = "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe"
+args = ["C:\\MCP-PATHe\\CaptureScreenMCP\\server.py"]
 startup_timeout_sec = 30
 ```
 
@@ -70,8 +85,8 @@ startup_timeout_sec = 30
 
 ```toml
 [mcp_servers.capture-screen]
-command = "/mnt/c/junichi.takeda/source/CaptureScreenMCP/.venv/Scripts/python.exe"
-args = ["C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"]
+command = "/mnt/c/MCP-PATH/CaptureScreenMCP/.venv/Scripts/python.exe"
+args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
 startup_timeout_sec = 30
 env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 ```
@@ -86,9 +101,9 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 {
   "servers": {
     "capture-screen": {
-      "command": "C:\\junichi.takeda\\source\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
       "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
+        "C:\\MCP-PATHe\\CaptureScreenMCP\\server.py"
       ]
     }
   }
@@ -101,9 +116,9 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 {
   "servers": {
     "capture-screen": {
-      "command": "C:\\junichi.takeda\\source\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
       "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
+        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
       ],
       "env": {
         "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
@@ -123,9 +138,9 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 {
   "mcpServers": {
     "capture-screen": {
-      "command": "C:\\junichi.takeda\\source\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
       "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
+        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
       ]
     }
   }
@@ -138,9 +153,9 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 {
   "mcpServers": {
     "capture-screen": {
-      "command": "C:\\junichi.takeda\\source\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
       "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
+        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
       ],
       "env": {
         "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
