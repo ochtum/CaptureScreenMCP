@@ -4,7 +4,7 @@ A Windows screen capture MCP server.<br>
 It lets you show your current screen to AI.<br>
 You can use it for operation support, advice on broken layouts, and questions about error messages on screens where copy-and-paste is not available.<br>
 
-Default output directory: `C:\junichi.takeda\tool\capture_screen`.
+Default output directory: `C:\capture_screen`.
 
 ## Tools
 
@@ -16,6 +16,8 @@ Default output directory: `C:\junichi.takeda\tool\capture_screen`.
   - Captures the specified monitor and saves it as PNG. If `display` is omitted, it uses the `CAPTURE_SCREEN_DEFAULT_DISPLAY` environment variable (for example, `left`, `右`). If not set, `primary` is used.
 - `capture_region(x: int, y: int, width: int, height: int, output_path?: string)`
   - Captures the specified screen region and saves it as PNG.
+- `capture_active_window(output_path?: string)`
+  - Captures the currently active window and saves it as PNG.
 
 ## Setup (Windows)
 
@@ -56,6 +58,17 @@ startup_timeout_sec = 30
 
 Note: Use either `WSL format (/mnt/c/...)` or `Windows format (C:\\...)` for `command`, depending on your runtime environment.
 Note: To change the default monitor target, set the `CAPTURE_SCREEN_DEFAULT_DISPLAY` environment variable (for example, `left`, `right`, `プライマリ`, `左`, `右`).
+Note: To change the output directory, set the `CAPTURE_SCREEN_OUTPUT_DIR` environment variable (defaults to `C:\capture_screen` when unset).
+
+### Codex Example for Setting Output Directory
+
+```toml
+[mcp_servers.capture-screen]
+command = "/mnt/c/junichi.takeda/source/CaptureScreenMCP/.venv/Scripts/python.exe"
+args = ["C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"]
+startup_timeout_sec = 30
+env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
+```
 
 ## GitHub Copilot MCP Configuration (VS Code)
 
@@ -91,6 +104,24 @@ Create or update `.vscode/mcp.json` with the following:
 }
 ```
 
+Example with `CAPTURE_SCREEN_OUTPUT_DIR`:
+
+```json
+{
+  "servers": {
+    "capture-screen": {
+      "command": "C:\\junichi.takeda\\source\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
+      ],
+      "env": {
+        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
+      }
+    }
+  }
+}
+```
+
 ## Claude Desktop MCP Configuration
 
 Add the following to `mcpServers` in `claude_desktop_config.json`.
@@ -120,6 +151,24 @@ Add the following to `mcpServers` in `claude_desktop_config.json`.
       "args": [
         "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
       ]
+    }
+  }
+}
+```
+
+Example with `CAPTURE_SCREEN_OUTPUT_DIR`:
+
+```json
+{
+  "mcpServers": {
+    "capture-screen": {
+      "command": "C:\\junichi.takeda\\source\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
+      ],
+      "env": {
+        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
+      }
     }
   }
 }

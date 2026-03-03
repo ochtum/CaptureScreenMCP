@@ -10,6 +10,8 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("capture-screen-mcp")
 DEFAULT_DISPLAY_ENV = "CAPTURE_SCREEN_DEFAULT_DISPLAY"
+OUTPUT_DIR_ENV = "CAPTURE_SCREEN_OUTPUT_DIR"
+DEFAULT_OUTPUT_DIR = Path(r"C:\capture_screen")
 
 
 def _ensure_windows() -> None:
@@ -42,7 +44,8 @@ def _run_powershell(script: str) -> str:
 
 
 def _default_output_dir() -> Path:
-    base = Path(r"C:\junichi.takeda\tool\capture_screen")
+    configured = os.getenv(OUTPUT_DIR_ENV, "").strip()
+    base = Path(configured) if configured else DEFAULT_OUTPUT_DIR
     base.mkdir(parents=True, exist_ok=True)
     return base
 
@@ -150,7 +153,8 @@ def capture_screen(output_path: str | None = None) -> dict:
     """Capture full virtual desktop and save as PNG.
 
     Args:
-        output_path: Full output path like C:\\tmp\\shot.png. If omitted, auto-generates under C:\\junichi.takeda\\tool\\capture_screen.
+        output_path: Full output path like C:\\tmp\\shot.png. If omitted, auto-generates
+            under CAPTURE_SCREEN_OUTPUT_DIR or C:\\capture_screen.
     """
     _ensure_windows()
 
@@ -182,7 +186,8 @@ def capture_display(display: int | str | None = None, output_path: str | None = 
         display: Monitor selector. Use monitor index (1..n), or `primary`, `left`, `right`,
             `プライマリ`, `左`, `右`. If omitted, uses CAPTURE_SCREEN_DEFAULT_DISPLAY
             environment variable, or `primary` when unset.
-        output_path: Full output path like C:\\tmp\\monitor1.png. If omitted, auto-generates under C:\\junichi.takeda\\tool\\capture_screen.
+        output_path: Full output path like C:\\tmp\\monitor1.png. If omitted, auto-generates
+            under CAPTURE_SCREEN_OUTPUT_DIR or C:\\capture_screen.
     """
     displays = _load_displays()
     selector = _default_display_selector() if display is None else display
@@ -223,7 +228,8 @@ def capture_region(x: int, y: int, width: int, height: int, output_path: str | N
         y: Top coordinate.
         width: Region width (>0).
         height: Region height (>0).
-        output_path: Full output path like C:\\tmp\\region.png. If omitted, auto-generates under C:\\junichi.takeda\\tool\\capture_screen.
+        output_path: Full output path like C:\\tmp\\region.png. If omitted, auto-generates
+            under CAPTURE_SCREEN_OUTPUT_DIR or C:\\capture_screen.
     """
     _ensure_windows()
 
@@ -252,6 +258,89 @@ Write-Output '{_ps_quote(target_str)}'
         "width": width,
         "height": height,
     }
+
+
+@mcp.tool()
+def capture_active_window(output_path: str | None = None) -> dict:
+    """Capture the currently active window and save as PNG.
+
+    Args:
+        output_path: Full output path like C:\\tmp\\active_window.png. If omitted, auto-generates
+            under CAPTURE_SCREEN_OUTPUT_DIR or C:\\capture_screen.
+    """
+    _ensure_windows()
+
+    target = _default_output_path("active_window", output_path)
+    target_str = str(target.resolve())
+
+    script = f"""
+Add-Type -AssemblyName System.Drawing
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class NativeMethods
+{{
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError=true)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    public static extern int GetWindowTextW(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+}}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct RECT
+{{
+    public int Left;
+    public int Top;
+    public int Right;
+    public int Bottom;
+}}
+"@
+
+$hWnd = [NativeMethods]::GetForegroundWindow()
+if ($hWnd -eq [IntPtr]::Zero) {{
+    throw "No active window found."
+}}
+
+$rect = New-Object RECT
+if (-not [NativeMethods]::GetWindowRect($hWnd, [ref]$rect)) {{
+    throw "Failed to get active window bounds."
+}}
+
+$width = $rect.Right - $rect.Left
+$height = $rect.Bottom - $rect.Top
+if ($width -le 0 -or $height -le 0) {{
+    throw "Active window has invalid bounds (possibly minimized)."
+}}
+
+$titleBuilder = New-Object System.Text.StringBuilder 1024
+[void][NativeMethods]::GetWindowTextW($hWnd, $titleBuilder, $titleBuilder.Capacity)
+$title = $titleBuilder.ToString()
+
+$bmp = New-Object System.Drawing.Bitmap $width, $height
+$g = [System.Drawing.Graphics]::FromImage($bmp)
+$g.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bmp.Size)
+$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
+$g.Dispose()
+$bmp.Dispose()
+
+[pscustomobject]@{{
+  saved_path = '{_ps_quote(target_str)}'
+  x = $rect.Left
+  y = $rect.Top
+  width = $width
+  height = $height
+  title = $title
+}} | ConvertTo-Json -Compress
+"""
+
+    raw = _run_powershell(script)
+    return json.loads(raw)
 
 
 if __name__ == "__main__":
