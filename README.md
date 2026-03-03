@@ -80,21 +80,6 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 
 `.vscode/mcp.json` を作成または更新し、以下を設定します。
 
-### WSL から使う場合（この環境）
-
-```json
-{
-  "servers": {
-    "capture-screen": {
-      "command": "/mnt/c/junichi.takeda/source/CaptureScreenMCP/.venv/Scripts/python.exe",
-      "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
-      ]
-    }
-  }
-}
-```
-
 ### Windows ネイティブで使う場合
 
 ```json
@@ -131,21 +116,6 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 ## Claude Desktop MCP設定
 
 `claude_desktop_config.json` の `mcpServers` に以下を追加します。
-
-### WSL から使う場合（この環境）
-
-```json
-{
-  "mcpServers": {
-    "capture-screen": {
-      "command": "/mnt/c/junichi.takeda/source/CaptureScreenMCP/.venv/Scripts/python.exe",
-      "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
-      ]
-    }
-  }
-}
-```
 
 ### Windows ネイティブで使う場合
 

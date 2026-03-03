@@ -74,21 +74,6 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 
 Create or update `.vscode/mcp.json` with the following:
 
-### For WSL (this environment)
-
-```json
-{
-  "servers": {
-    "capture-screen": {
-      "command": "/mnt/c/junichi.takeda/source/CaptureScreenMCP/.venv/Scripts/python.exe",
-      "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
-      ]
-    }
-  }
-}
-```
-
 ### For Windows Native
 
 ```json
@@ -125,21 +110,6 @@ Example with `CAPTURE_SCREEN_OUTPUT_DIR`:
 ## Claude Desktop MCP Configuration
 
 Add the following to `mcpServers` in `claude_desktop_config.json`.
-
-### For WSL (this environment)
-
-```json
-{
-  "mcpServers": {
-    "capture-screen": {
-      "command": "/mnt/c/junichi.takeda/source/CaptureScreenMCP/.venv/Scripts/python.exe",
-      "args": [
-        "C:\\junichi.takeda\\source\\CaptureScreenMCP\\server.py"
-      ]
-    }
-  }
-}
-```
 
 ### For Windows Native
 
