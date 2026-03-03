@@ -1,0 +1,258 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+from datetime import datetime
+from pathlib import Path
+
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("capture-screen-mcp")
+DEFAULT_DISPLAY_ENV = "CAPTURE_SCREEN_DEFAULT_DISPLAY"
+
+
+def _ensure_windows() -> None:
+    if os.name != "nt":
+        raise RuntimeError("This MCP server only works on Windows.")
+
+
+def _ps_quote(value: str) -> str:
+    return value.replace("'", "''")
+
+
+def _run_powershell(script: str) -> str:
+    proc = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            script,
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if proc.returncode != 0:
+        msg = proc.stderr.strip() or proc.stdout.strip() or "PowerShell execution failed"
+        raise RuntimeError(msg)
+    return proc.stdout.strip()
+
+
+def _default_output_dir() -> Path:
+    base = Path(r"C:\junichi.takeda\tool\capture_screen")
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _default_output_path(prefix: str, output_path: str | None) -> Path:
+    if output_path:
+        target = Path(output_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        return target
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return _default_output_dir() / f"{prefix}_{ts}.png"
+
+
+def _load_displays() -> list[dict]:
+    _ensure_windows()
+    script = r'''
+Add-Type -AssemblyName System.Windows.Forms
+$screens = [System.Windows.Forms.Screen]::AllScreens
+$result = @()
+for ($i = 0; $i -lt $screens.Length; $i++) {
+  $b = $screens[$i].Bounds
+  $result += [pscustomobject]@{
+    index = $i + 1
+    device_name = $screens[$i].DeviceName
+    is_primary = $screens[$i].Primary
+    x = $b.X
+    y = $b.Y
+    width = $b.Width
+    height = $b.Height
+  }
+}
+$result | ConvertTo-Json -Depth 3 -Compress
+'''
+    raw = _run_powershell(script)
+    if not raw:
+        return []
+    parsed = json.loads(raw)
+    if isinstance(parsed, dict):
+        return [parsed]
+    return parsed
+
+
+def _resolve_display(displays: list[dict], display: int | str) -> dict:
+    if not displays:
+        raise RuntimeError("No displays detected.")
+
+    if isinstance(display, int):
+        for d in displays:
+            if int(d["index"]) == display:
+                return d
+        raise ValueError(f"display index {display} was not found")
+
+    key = str(display).strip().lower()
+    aliases = {
+        "primary": "primary",
+        "プライマリ": "primary",
+        "left": "left",
+        "leftmost": "left",
+        "左": "left",
+        "right": "right",
+        "rightmost": "right",
+        "右": "right",
+    }
+    key = aliases.get(key, key)
+    if key == "primary":
+        for d in displays:
+            if d.get("is_primary"):
+                return d
+        return displays[0]
+
+    ordered = sorted(displays, key=lambda d: (int(d["x"]), int(d["y"]), int(d["index"])))
+    if key == "left":
+        return ordered[0]
+    if key == "right":
+        return ordered[-1]
+    if key.isdigit():
+        wanted = int(key)
+        for d in displays:
+            if int(d["index"]) == wanted:
+                return d
+        raise ValueError(f"display index {wanted} was not found")
+
+    raise ValueError(
+        "display must be monitor index (1..n) or one of: "
+        "primary/left/right/プライマリ/左/右"
+    )
+
+
+def _default_display_selector() -> int | str:
+    configured = os.getenv(DEFAULT_DISPLAY_ENV, "").strip()
+    if configured:
+        return configured
+    return "primary"
+
+
+@mcp.tool()
+def list_displays() -> dict:
+    """List all connected displays with bounds and primary flag."""
+    displays = _load_displays()
+    return {"displays": displays}
+
+
+@mcp.tool()
+def capture_screen(output_path: str | None = None) -> dict:
+    """Capture full virtual desktop and save as PNG.
+
+    Args:
+        output_path: Full output path like C:\\tmp\\shot.png. If omitted, auto-generates under C:\\junichi.takeda\\tool\\capture_screen.
+    """
+    _ensure_windows()
+
+    target = _default_output_path("capture", output_path)
+    target_str = str(target.resolve())
+
+    script = f"""
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+$bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+$g = [System.Drawing.Graphics]::FromImage($bmp)
+$g.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bounds.Size)
+$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
+$g.Dispose()
+$bmp.Dispose()
+Write-Output '{_ps_quote(target_str)}'
+"""
+
+    saved = _run_powershell(script)
+    return {"saved_path": saved}
+
+
+@mcp.tool()
+def capture_display(display: int | str | None = None, output_path: str | None = None) -> dict:
+    """Capture a specific display (monitor) and save as PNG.
+
+    Args:
+        display: Monitor selector. Use monitor index (1..n), or `primary`, `left`, `right`,
+            `プライマリ`, `左`, `右`. If omitted, uses CAPTURE_SCREEN_DEFAULT_DISPLAY
+            environment variable, or `primary` when unset.
+        output_path: Full output path like C:\\tmp\\monitor1.png. If omitted, auto-generates under C:\\junichi.takeda\\tool\\capture_screen.
+    """
+    displays = _load_displays()
+    selector = _default_display_selector() if display is None else display
+    selected = _resolve_display(displays, selector)
+
+    target = _default_output_path(f"display{selected['index']}", output_path)
+    target_str = str(target.resolve())
+
+    x = int(selected["x"])
+    y = int(selected["y"])
+    width = int(selected["width"])
+    height = int(selected["height"])
+
+    script = f"""
+Add-Type -AssemblyName System.Drawing
+$bmp = New-Object System.Drawing.Bitmap {width}, {height}
+$g = [System.Drawing.Graphics]::FromImage($bmp)
+$g.CopyFromScreen({x}, {y}, 0, 0, $bmp.Size)
+$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
+$g.Dispose()
+$bmp.Dispose()
+Write-Output '{_ps_quote(target_str)}'
+"""
+
+    saved = _run_powershell(script)
+    return {
+        "saved_path": saved,
+        "display": selected,
+    }
+
+
+@mcp.tool()
+def capture_region(x: int, y: int, width: int, height: int, output_path: str | None = None) -> dict:
+    """Capture a screen region and save as PNG.
+
+    Args:
+        x: Left coordinate.
+        y: Top coordinate.
+        width: Region width (>0).
+        height: Region height (>0).
+        output_path: Full output path like C:\\tmp\\region.png. If omitted, auto-generates under C:\\junichi.takeda\\tool\\capture_screen.
+    """
+    _ensure_windows()
+
+    if width <= 0 or height <= 0:
+        raise ValueError("width and height must be > 0")
+
+    target = _default_output_path("region", output_path)
+    target_str = str(target.resolve())
+
+    script = f"""
+Add-Type -AssemblyName System.Drawing
+$bmp = New-Object System.Drawing.Bitmap {width}, {height}
+$g = [System.Drawing.Graphics]::FromImage($bmp)
+$g.CopyFromScreen({x}, {y}, 0, 0, $bmp.Size)
+$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
+$g.Dispose()
+$bmp.Dispose()
+Write-Output '{_ps_quote(target_str)}'
+"""
+
+    saved = _run_powershell(script)
+    return {
+        "saved_path": saved,
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": height,
+    }
+
+
+if __name__ == "__main__":
+    mcp.run()
