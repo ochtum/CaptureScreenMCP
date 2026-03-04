@@ -31,6 +31,20 @@ Windows向けの画面キャプチャ用MCPサーバーです。<br>
   - ファイル更新日時を基準に、指定日または日時範囲に一致するキャプチャ画像ファイルを削除します。
   - `target_date` は `YYYY-MM-DD`、`start_datetime`/`end_datetime` は `YYYY-MM-DD HH:MM[:SS]` または `YYYY-MM-DDTHH:MM[:SS]` 形式です。
 
+## MCP実行前に必要なPythonライブラリ
+
+以下のライブラリをインストールしてください（`requirements.txt` に含まれています）。
+
+- `mcp>=1.0.0`
+- `mss>=9.0.1`
+- `Pillow>=10.0.0`
+
+インストールコマンド:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
 ## ツール別の使用例（プロンプト例）
 
 ### `list_displays()`
@@ -122,7 +136,7 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\junichi.takeda\\tool\\capture_screen"
 ```toml
 [mcp_servers.capture-screen]
 command = "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe"
-args = ["C:\\MCP-PATHe\\CaptureScreenMCP\\server.py"]
+args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
 startup_timeout_sec = 30
 ```
 
@@ -152,7 +166,7 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
     "capture-screen": {
       "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
       "args": [
-        "C:\\MCP-PATHe\\CaptureScreenMCP\\server.py"
+        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
       ]
     }
   }
