@@ -18,6 +18,11 @@ Default output directory: `C:\capture_screen`.
   - Captures the specified screen region and saves it as PNG.
 - `capture_active_window(output_path?: string)`
   - Captures the currently active window and saves it as PNG.
+- `delete_all_capture_images()`
+  - Deletes all capture image files directly under `CAPTURE_SCREEN_OUTPUT_DIR` (defaults to `C:\capture_screen`).
+- `delete_capture_images_by_datetime(target_date?: string, start_datetime?: string, end_datetime?: string)`
+  - Deletes capture image files by file modified time using a specific day or datetime range.
+  - `target_date` uses `YYYY-MM-DD`, and `start_datetime`/`end_datetime` use `YYYY-MM-DD HH:MM[:SS]` or `YYYY-MM-DDTHH:MM[:SS]`.
 
 ## Setup (Windows)
 

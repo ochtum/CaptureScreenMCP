@@ -17,13 +17,60 @@ Windows向けの画面キャプチャ用MCPサーバーです。<br>
 - `list_displays()`
   - 接続されているモニター情報（`index`, `is_primary`, `x`, `y`, `width`, `height`）を返します。
 - `capture_screen(output_path?: string)`
-  - 仮想デスクトップ全体をキャプチャし、PNGとして保存します。
+  - デスクトップ全体をキャプチャし、PNGとして保存します。
 - `capture_display(display?: int | "primary" | "left" | "right" | "プライマリ" | "左" | "右", output_path?: string)`
   - 指定したモニターをキャプチャし、PNGとして保存します。`display` を省略した場合は環境変数 `CAPTURE_SCREEN_DEFAULT_DISPLAY`（例: `left`, `右`）を使用し、未設定時は `primary` を使います。
 - `capture_region(x: int, y: int, width: int, height: int, output_path?: string)`
   - 指定した画面領域をキャプチャし、PNGとして保存します。
 - `capture_active_window(output_path?: string)`
   - 現在アクティブなウィンドウをキャプチャし、PNGとして保存します。
+- `delete_all_capture_images()`
+  - `CAPTURE_SCREEN_OUTPUT_DIR`（未設定時は `C:\capture_screen`）直下のキャプチャ画像ファイルをすべて削除します。
+- `delete_capture_images_by_datetime(target_date?: string, start_datetime?: string, end_datetime?: string)`
+  - ファイル更新日時を基準に、指定日または日時範囲に一致するキャプチャ画像ファイルを削除します。
+  - `target_date` は `YYYY-MM-DD`、`start_datetime`/`end_datetime` は `YYYY-MM-DD HH:MM[:SS]` または `YYYY-MM-DDTHH:MM[:SS]` 形式です。
+
+## ツール別の使用例（プロンプト例）
+
+### `list_displays()`
+
+- 「接続されているモニター一覧を取得して、`index` と解像度を教えてください。」
+- 「プライマリモニターがどれか確認したいので、`list_displays` を実行してください。」
+- 「モニターの配置（`x`, `y`）を見て、左右どちらに拡張されているか教えてください。」
+
+### `capture_screen(output_path?: string)`
+
+- 「画面全体をキャプチャして保存してください。」
+- 「デスクトップ全体を `C:\\capture_screen\\full_desktop.png` に保存してください。」
+- 「今の全モニター表示を1枚の画像として取得してください。」
+
+### `capture_display(display?: ..., output_path?: string)`
+
+- 「プライマリモニターだけをキャプチャしてください。」
+- 「左モニタを見てほしいんですけど、CloudFormationでスタックを削除したときに、保護されたバケットに残ってしまいまして、、、「無効にする」にしても消えない状態なんですけど、どうしたらいいですかね？」
+- 「`display=2` だけキャプチャしてください。」
+
+### `capture_region(x, y, width, height, output_path?: string)`
+
+- 「`保護されたバケット`の領域だけをキャプチャとってください」
+- 「エラーが出ているダイアログ周辺だけ撮りたいので、指定領域を保存してください。」
+- 「今キャプチャした画像を確認してほしいんですけど、見切れています」
+
+### `capture_active_window(output_path?: string)`
+
+- 「現在アクティブなウィンドウだけキャプチャしてください。」
+- 「今フォーカスしているアプリ画面を `C:\\capture_screen\\active_window.png` に保存してください。」
+- 「ブラウザのウィンドウだけを撮ってください。」
+
+### `delete_all_capture_images()`
+
+- 「キャプチャ画像を全部削除してください。」
+
+### `delete_capture_images_by_datetime(target_date?, start_datetime?, end_datetime?)`
+
+- 「`2026-03-04` のキャプチャ画像を削除してください。」
+- 「`2026-03-04 09:00`～`2026-03-04 18:00` の範囲だけ削除してください。」
+- 「`2026-03-01` から `2026-03-03` までの分を削除したいです。」
 
 ## セットアップ（Windows）
 
@@ -59,13 +106,14 @@ cd /mnt/c/jMCP-PATH/CaptureScreenMCP
 
 ## Codex MCP設定
 
-### WSL から使う場合（この環境）
+### WSL から使う場合
 
 ```toml
 [mcp_servers.capture-screen]
 command = "/mnt/c/MCP-PATH/CaptureScreenMCP/.venv/Scripts/python.exe"
 args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
 startup_timeout_sec = 30
+env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\junichi.takeda\\tool\\capture_screen", "WSLENV" = "CAPTURE_SCREEN_OUTPUT_DIR" }
 ```
 
 ### Windows ネイティブで使う場合
@@ -130,7 +178,8 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 
 ## Claude Desktop MCP設定
 
-`claude_desktop_config.json` の `mcpServers` に以下を追加します。
+`%USERPROFILE%\AppData\Roaming\Claude\claude_desktop_config.json` の `mcpServers` に以下を追加します。
+
 
 ### Windows ネイティブで使う場合
 
@@ -153,6 +202,43 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 {
   "mcpServers": {
     "capture-screen": {
+      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
+      ],
+      "env": {
+        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
+      }
+    }
+  }
+}
+```
+
+## Claude Code MCP設定
+
+`%USERPROFILE%\.claude.json` の `mcpServers` に以下を追加します。
+
+```json
+{
+  "mcpServers": {
+    "capture-screen": {
+      "type": "stdio",
+      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
+      ]
+    }
+  }
+}
+```
+
+`CAPTURE_SCREEN_OUTPUT_DIR` を指定する場合の例:
+
+```json
+{
+  "mcpServers": {
+    "capture-screen": {
+      "type": "stdio",
       "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
       "args": [
         "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"

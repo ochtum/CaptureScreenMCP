@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from datetime import datetime
+from datetime import date, datetime, time
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -12,6 +12,7 @@ mcp = FastMCP("capture-screen-mcp")
 DEFAULT_DISPLAY_ENV = "CAPTURE_SCREEN_DEFAULT_DISPLAY"
 OUTPUT_DIR_ENV = "CAPTURE_SCREEN_OUTPUT_DIR"
 DEFAULT_OUTPUT_DIR = Path(r"C:\capture_screen")
+CAPTURE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"}
 
 
 def _ensure_windows() -> None:
@@ -57,6 +58,40 @@ def _default_output_path(prefix: str, output_path: str | None) -> Path:
         return target
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     return _default_output_dir() / f"{prefix}_{ts}.png"
+
+
+def _capture_images_in_default_dir() -> list[Path]:
+    base = _default_output_dir()
+    return [
+        p
+        for p in base.iterdir()
+        if p.is_file() and p.suffix.lower() in CAPTURE_IMAGE_EXTENSIONS
+    ]
+
+
+def _parse_date(value: str) -> date:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError("date must be in YYYY-MM-DD format") from exc
+
+
+def _parse_datetime(value: str) -> datetime:
+    normalized = value.strip().replace("T", " ")
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.strptime(normalized, fmt)
+        except ValueError:
+            continue
+    raise ValueError("datetime must be YYYY-MM-DD HH:MM[:SS] (or ISO with T)")
+
+
+def _delete_files(files: list[Path]) -> list[str]:
+    deleted: list[str] = []
+    for path in files:
+        path.unlink(missing_ok=True)
+        deleted.append(str(path.resolve()))
+    return deleted
 
 
 def _load_displays() -> list[dict]:
@@ -341,6 +376,68 @@ $bmp.Dispose()
 
     raw = _run_powershell(script)
     return json.loads(raw)
+
+
+@mcp.tool()
+def delete_all_capture_images() -> dict:
+    """Delete all capture image files in CAPTURE_SCREEN_OUTPUT_DIR."""
+    files = _capture_images_in_default_dir()
+    deleted = _delete_files(files)
+    return {
+        "output_dir": str(_default_output_dir().resolve()),
+        "deleted_count": len(deleted),
+        "deleted_files": deleted,
+    }
+
+
+@mcp.tool()
+def delete_capture_images_by_datetime(
+    target_date: str | None = None,
+    start_datetime: str | None = None,
+    end_datetime: str | None = None,
+) -> dict:
+    """Delete capture images by date or datetime range using file modified time.
+
+    Args:
+        target_date: Date in YYYY-MM-DD. Deletes files modified on that day.
+        start_datetime: Lower bound in YYYY-MM-DD HH:MM[:SS] (inclusive).
+        end_datetime: Upper bound in YYYY-MM-DD HH:MM[:SS] (inclusive).
+    """
+    if target_date and (start_datetime or end_datetime):
+        raise ValueError("Use either target_date or start_datetime/end_datetime, not both")
+    if not target_date and not start_datetime and not end_datetime:
+        raise ValueError("Specify target_date or start_datetime/end_datetime")
+
+    if target_date:
+        d = _parse_date(target_date)
+        start = datetime.combine(d, time.min)
+        end = datetime.combine(d, time.max)
+    else:
+        start = _parse_datetime(start_datetime) if start_datetime else None
+        end = _parse_datetime(end_datetime) if end_datetime else None
+        if start and end and start > end:
+            raise ValueError("start_datetime must be earlier than or equal to end_datetime")
+
+    matches: list[Path] = []
+    for path in _capture_images_in_default_dir():
+        modified = datetime.fromtimestamp(path.stat().st_mtime)
+        if start and modified < start:
+            continue
+        if end and modified > end:
+            continue
+        matches.append(path)
+
+    deleted = _delete_files(matches)
+    return {
+        "output_dir": str(_default_output_dir().resolve()),
+        "deleted_count": len(deleted),
+        "deleted_files": deleted,
+        "filter": {
+            "target_date": target_date,
+            "start_datetime": start_datetime,
+            "end_datetime": end_datetime,
+        },
+    }
 
 
 if __name__ == "__main__":
