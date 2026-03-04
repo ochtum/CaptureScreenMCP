@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import json
+import ctypes
 import os
-import subprocess
+from ctypes import wintypes
 from datetime import date, datetime, time
 from pathlib import Path
 
+import mss
+from PIL import Image
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("capture-screen-mcp")
@@ -14,34 +16,31 @@ OUTPUT_DIR_ENV = "CAPTURE_SCREEN_OUTPUT_DIR"
 DEFAULT_OUTPUT_DIR = Path(r"C:\capture_screen")
 CAPTURE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"}
 
+MONITORINFOF_PRIMARY = 1
+CCHDEVICENAME = 32
+
 
 def _ensure_windows() -> None:
     if os.name != "nt":
         raise RuntimeError("This MCP server only works on Windows.")
 
 
-def _ps_quote(value: str) -> str:
-    return value.replace("'", "''")
+def _set_process_dpi_aware() -> None:
+    # Best-effort only: keeps capture coordinates aligned on HiDPI displays.
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
 
 
-def _run_powershell(script: str) -> str:
-    proc = subprocess.run(
-        [
-            "powershell",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            script,
-        ],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    if proc.returncode != 0:
-        msg = proc.stderr.strip() or proc.stdout.strip() or "PowerShell execution failed"
-        raise RuntimeError(msg)
-    return proc.stdout.strip()
+class MONITORINFOEXW(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("rcMonitor", wintypes.RECT),
+        ("rcWork", wintypes.RECT),
+        ("dwFlags", wintypes.DWORD),
+        ("szDevice", wintypes.WCHAR * CCHDEVICENAME),
+    ]
 
 
 def _default_output_dir() -> Path:
@@ -94,33 +93,56 @@ def _delete_files(files: list[Path]) -> list[str]:
     return deleted
 
 
-def _load_displays() -> list[dict]:
+def _enumerate_displays() -> list[dict]:
     _ensure_windows()
-    script = r'''
-Add-Type -AssemblyName System.Windows.Forms
-$screens = [System.Windows.Forms.Screen]::AllScreens
-$result = @()
-for ($i = 0; $i -lt $screens.Length; $i++) {
-  $b = $screens[$i].Bounds
-  $result += [pscustomobject]@{
-    index = $i + 1
-    device_name = $screens[$i].DeviceName
-    is_primary = $screens[$i].Primary
-    x = $b.X
-    y = $b.Y
-    width = $b.Width
-    height = $b.Height
-  }
-}
-$result | ConvertTo-Json -Depth 3 -Compress
-'''
-    raw = _run_powershell(script)
-    if not raw:
-        return []
-    parsed = json.loads(raw)
-    if isinstance(parsed, dict):
-        return [parsed]
-    return parsed
+    _set_process_dpi_aware()
+
+    user32 = ctypes.windll.user32
+    user32.GetMonitorInfoW.argtypes = [ctypes.c_void_p, ctypes.POINTER(MONITORINFOEXW)]
+    user32.GetMonitorInfoW.restype = wintypes.BOOL
+
+    displays: list[dict] = []
+
+    monitor_enum_proc = ctypes.WINFUNCTYPE(
+        wintypes.BOOL,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.POINTER(wintypes.RECT),
+        wintypes.LPARAM,
+    )
+
+    @monitor_enum_proc
+    def _callback(h_monitor, _hdc, _lprc_monitor, _lparam):
+        info = MONITORINFOEXW()
+        info.cbSize = ctypes.sizeof(MONITORINFOEXW)
+        if not user32.GetMonitorInfoW(h_monitor, ctypes.byref(info)):
+            return True
+
+        left = int(info.rcMonitor.left)
+        top = int(info.rcMonitor.top)
+        right = int(info.rcMonitor.right)
+        bottom = int(info.rcMonitor.bottom)
+        displays.append(
+            {
+                "index": len(displays) + 1,
+                "device_name": info.szDevice,
+                "is_primary": bool(info.dwFlags & MONITORINFOF_PRIMARY),
+                "x": left,
+                "y": top,
+                "width": right - left,
+                "height": bottom - top,
+            }
+        )
+        return True
+
+    if not user32.EnumDisplayMonitors(None, None, _callback, 0):
+        raise RuntimeError("Failed to enumerate displays.")
+
+    return displays
+
+
+def _load_displays() -> list[dict]:
+    return _enumerate_displays()
 
 
 def _resolve_display(displays: list[dict], display: int | str) -> dict:
@@ -176,6 +198,52 @@ def _default_display_selector() -> int | str:
     return "primary"
 
 
+def _save_capture_png(left: int, top: int, width: int, height: int, target: Path) -> str:
+    monitor = {
+        "left": int(left),
+        "top": int(top),
+        "width": int(width),
+        "height": int(height),
+    }
+
+    with mss.mss() as sct:
+        shot = sct.grab(monitor)
+        image = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+        image.save(str(target), format="PNG")
+
+    return str(target.resolve())
+
+
+def _active_window_info() -> dict:
+    _ensure_windows()
+    _set_process_dpi_aware()
+
+    user32 = ctypes.windll.user32
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd:
+        raise RuntimeError("No active window found.")
+
+    rect = wintypes.RECT()
+    if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+        raise RuntimeError("Failed to get active window bounds.")
+
+    width = int(rect.right - rect.left)
+    height = int(rect.bottom - rect.top)
+    if width <= 0 or height <= 0:
+        raise RuntimeError("Active window has invalid bounds (possibly minimized).")
+
+    title_buffer = ctypes.create_unicode_buffer(1024)
+    user32.GetWindowTextW(hwnd, title_buffer, 1024)
+
+    return {
+        "x": int(rect.left),
+        "y": int(rect.top),
+        "width": width,
+        "height": height,
+        "title": title_buffer.value,
+    }
+
+
 @mcp.tool()
 def list_displays() -> dict:
     """List all connected displays with bounds and primary flag."""
@@ -194,22 +262,16 @@ def capture_screen(output_path: str | None = None) -> dict:
     _ensure_windows()
 
     target = _default_output_path("capture", output_path)
-    target_str = str(target.resolve())
+    with mss.mss() as sct:
+        monitor = sct.monitors[0]
+    saved = _save_capture_png(
+        int(monitor["left"]),
+        int(monitor["top"]),
+        int(monitor["width"]),
+        int(monitor["height"]),
+        target,
+    )
 
-    script = f"""
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
-$bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-$g = [System.Drawing.Graphics]::FromImage($bmp)
-$g.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bounds.Size)
-$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
-$g.Dispose()
-$bmp.Dispose()
-Write-Output '{_ps_quote(target_str)}'
-"""
-
-    saved = _run_powershell(script)
     return {"saved_path": saved}
 
 
@@ -229,25 +291,14 @@ def capture_display(display: int | str | None = None, output_path: str | None = 
     selected = _resolve_display(displays, selector)
 
     target = _default_output_path(f"display{selected['index']}", output_path)
-    target_str = str(target.resolve())
+    saved = _save_capture_png(
+        int(selected["x"]),
+        int(selected["y"]),
+        int(selected["width"]),
+        int(selected["height"]),
+        target,
+    )
 
-    x = int(selected["x"])
-    y = int(selected["y"])
-    width = int(selected["width"])
-    height = int(selected["height"])
-
-    script = f"""
-Add-Type -AssemblyName System.Drawing
-$bmp = New-Object System.Drawing.Bitmap {width}, {height}
-$g = [System.Drawing.Graphics]::FromImage($bmp)
-$g.CopyFromScreen({x}, {y}, 0, 0, $bmp.Size)
-$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
-$g.Dispose()
-$bmp.Dispose()
-Write-Output '{_ps_quote(target_str)}'
-"""
-
-    saved = _run_powershell(script)
     return {
         "saved_path": saved,
         "display": selected,
@@ -272,20 +323,8 @@ def capture_region(x: int, y: int, width: int, height: int, output_path: str | N
         raise ValueError("width and height must be > 0")
 
     target = _default_output_path("region", output_path)
-    target_str = str(target.resolve())
+    saved = _save_capture_png(x, y, width, height, target)
 
-    script = f"""
-Add-Type -AssemblyName System.Drawing
-$bmp = New-Object System.Drawing.Bitmap {width}, {height}
-$g = [System.Drawing.Graphics]::FromImage($bmp)
-$g.CopyFromScreen({x}, {y}, 0, 0, $bmp.Size)
-$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
-$g.Dispose()
-$bmp.Dispose()
-Write-Output '{_ps_quote(target_str)}'
-"""
-
-    saved = _run_powershell(script)
     return {
         "saved_path": saved,
         "x": x,
@@ -305,77 +344,25 @@ def capture_active_window(output_path: str | None = None) -> dict:
     """
     _ensure_windows()
 
+    window = _active_window_info()
+
     target = _default_output_path("active_window", output_path)
-    target_str = str(target.resolve())
+    saved = _save_capture_png(
+        int(window["x"]),
+        int(window["y"]),
+        int(window["width"]),
+        int(window["height"]),
+        target,
+    )
 
-    script = f"""
-Add-Type -AssemblyName System.Drawing
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Text;
-
-public static class NativeMethods
-{{
-    [DllImport("user32.dll")]
-    public static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll", SetLastError=true)]
-    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-
-    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
-    public static extern int GetWindowTextW(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-}}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct RECT
-{{
-    public int Left;
-    public int Top;
-    public int Right;
-    public int Bottom;
-}}
-"@
-
-$hWnd = [NativeMethods]::GetForegroundWindow()
-if ($hWnd -eq [IntPtr]::Zero) {{
-    throw "No active window found."
-}}
-
-$rect = New-Object RECT
-if (-not [NativeMethods]::GetWindowRect($hWnd, [ref]$rect)) {{
-    throw "Failed to get active window bounds."
-}}
-
-$width = $rect.Right - $rect.Left
-$height = $rect.Bottom - $rect.Top
-if ($width -le 0 -or $height -le 0) {{
-    throw "Active window has invalid bounds (possibly minimized)."
-}}
-
-$titleBuilder = New-Object System.Text.StringBuilder 1024
-[void][NativeMethods]::GetWindowTextW($hWnd, $titleBuilder, $titleBuilder.Capacity)
-$title = $titleBuilder.ToString()
-
-$bmp = New-Object System.Drawing.Bitmap $width, $height
-$g = [System.Drawing.Graphics]::FromImage($bmp)
-$g.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bmp.Size)
-$bmp.Save('{_ps_quote(target_str)}', [System.Drawing.Imaging.ImageFormat]::Png)
-$g.Dispose()
-$bmp.Dispose()
-
-[pscustomobject]@{{
-  saved_path = '{_ps_quote(target_str)}'
-  x = $rect.Left
-  y = $rect.Top
-  width = $width
-  height = $height
-  title = $title
-}} | ConvertTo-Json -Compress
-"""
-
-    raw = _run_powershell(script)
-    return json.loads(raw)
+    return {
+        "saved_path": saved,
+        "x": window["x"],
+        "y": window["y"],
+        "width": window["width"],
+        "height": window["height"],
+        "title": window["title"],
+    }
 
 
 @mcp.tool()

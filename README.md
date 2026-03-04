@@ -8,6 +8,7 @@
 Windows向けの画面キャプチャ用MCPサーバーです。<br>
 現在見ている画面をAIに見せることができます。<br>
 操作のサポート、デザイン崩れのアドバイス、コピペできない画面でのエラーメッセージに関する質問などにご利用いただけます。<br>
+画面キャプチャ処理は `mss + Pillow + ctypes` で実装しており、PowerShell呼び出しは不要です。<br>
 
 
 デフォルトの出力先ディレクトリ: `C:\capture_screen`。
@@ -84,7 +85,7 @@ python -m pip install -r requirements.txt
 ## セットアップ（WSL）
 
 ```bash
-cd /mnt/c/jMCP-PATH/CaptureScreenMCP
+cd /mnt/c/MCP-PATH/CaptureScreenMCP
 /mnt/c/Windows/py.exe -3 -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
@@ -100,7 +101,7 @@ python server.py
 ## 実行（WSL）
 
 ```bash
-cd /mnt/c/jMCP-PATH/CaptureScreenMCP
+cd /mnt/c/MCP-PATH/CaptureScreenMCP
 ./.venv/Scripts/python.exe server.py
 ```
 

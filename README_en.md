@@ -3,6 +3,7 @@
 A Windows screen capture MCP server.<br>
 It lets you show your current screen to AI.<br>
 You can use it for operation support, advice on broken layouts, and questions about error messages on screens where copy-and-paste is not available.<br>
+Screen capture is implemented with `mss + Pillow + ctypes`, so no PowerShell invocation is required.<br>
 
 Default output directory: `C:\capture_screen`.
 
