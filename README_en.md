@@ -127,7 +127,7 @@ cd /mnt/c/MCP-PATH/CaptureScreenMCP
 command = "/mnt/c/MCP-PATH/CaptureScreenMCP/.venv/Scripts/python.exe"
 args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
 startup_timeout_sec = 30
-env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\junichi.takeda\\tool\\capture_screen", "WSLENV" = "CAPTURE_SCREEN_OUTPUT_DIR" }
+env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\MCP-PATH\\capture_screen", "WSLENV" = "CAPTURE_SCREEN_OUTPUT_DIR" }
 ```
 
 ### For Windows Native
