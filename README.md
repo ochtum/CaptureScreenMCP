@@ -25,6 +25,7 @@ Windows向けの画面キャプチャ用MCPサーバーです。<br>
   - 指定した画面領域をキャプチャし、PNGとして保存します。
 - `capture_active_window(output_path?: string)`
   - 現在アクティブなウィンドウをキャプチャし、PNGとして保存します。
+  - 注: `capture_screen` / `capture_display` / `capture_region` は、撮影範囲に重なっている可視状態の `Windows Terminal` ウィンドウを、撮影完了まで一時的に非表示にします。`capture_active_window` は端末自体を撮る用途を壊しやすいため対象外です。
 - `delete_all_capture_images()`
   - `CAPTURE_SCREEN_OUTPUT_DIR`（未設定時は `C:\capture_screen`）直下のキャプチャ画像ファイルをすべて削除します。
 - `delete_capture_images_by_datetime(target_date?: string, start_datetime?: string, end_datetime?: string)`
@@ -143,6 +144,7 @@ startup_timeout_sec = 30
 注: `command` は実行環境に合わせて `WSL形式(/mnt/c/...)` か `Windows形式(C:\\...)` を使い分けてください。
 注: 既定の対象モニターを変更したい場合は、環境変数 `CAPTURE_SCREEN_DEFAULT_DISPLAY` を設定します（例: `left`, `right`, `プライマリ`, `左`, `右`）。
 注: 出力先ディレクトリを変更したい場合は、環境変数 `CAPTURE_SCREEN_OUTPUT_DIR` を設定します（未設定時は `C:\capture_screen`）。
+注: `capture_screen` / `capture_display` / `capture_region` で重なっている `Windows Terminal` を一時的に隠したくない場合は、環境変数 `CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL=0` を設定してください。
 
 ### Codex で出力先ディレクトリを指定する例
 

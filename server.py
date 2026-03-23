@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import ctypes
 import os
+import time as time_module
 from ctypes import wintypes
+from contextlib import contextmanager
 from datetime import date, datetime, time
 from pathlib import Path
 
@@ -13,11 +15,18 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("capture-screen-mcp")
 DEFAULT_DISPLAY_ENV = "CAPTURE_SCREEN_DEFAULT_DISPLAY"
 OUTPUT_DIR_ENV = "CAPTURE_SCREEN_OUTPUT_DIR"
+HIDE_FOREGROUND_WINDOWS_TERMINAL_ENV = "CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL"
 DEFAULT_OUTPUT_DIR = Path(r"C:\capture_screen")
 CAPTURE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"}
+WINDOW_TERMINAL_CLASS_NAMES = {"CASCADIA_HOSTING_WINDOW_CLASS"}
+WINDOW_TERMINAL_PROCESS_NAMES = {"windowsterminal.exe", "wt.exe"}
+HIDE_CAPTURE_SETTLE_SECONDS = 0.15
 
 MONITORINFOF_PRIMARY = 1
 CCHDEVICENAME = 32
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+SW_HIDE = 0
+SW_SHOW = 5
 
 
 def _ensure_windows() -> None:
@@ -41,6 +50,18 @@ class MONITORINFOEXW(ctypes.Structure):
         ("dwFlags", wintypes.DWORD),
         ("szDevice", wintypes.WCHAR * CCHDEVICENAME),
     ]
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"", "1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def _default_output_dir() -> Path:
@@ -91,6 +112,27 @@ def _delete_files(files: list[Path]) -> list[str]:
         path.unlink(missing_ok=True)
         deleted.append(str(path.resolve()))
     return deleted
+
+
+def _rects_intersect(a: dict, b: dict) -> bool:
+    a_left = int(a["x"])
+    a_top = int(a["y"])
+    a_right = a_left + int(a["width"])
+    a_bottom = a_top + int(a["height"])
+    b_left = int(b["x"])
+    b_top = int(b["y"])
+    b_right = b_left + int(b["width"])
+    b_bottom = b_top + int(b["height"])
+    return a_left < b_right and b_left < a_right and a_top < b_bottom and b_top < a_bottom
+
+
+def _capture_rect(x: int, y: int, width: int, height: int) -> dict:
+    return {
+        "x": int(x),
+        "y": int(y),
+        "width": int(width),
+        "height": int(height),
+    }
 
 
 def _enumerate_displays() -> list[dict]:
@@ -214,34 +256,178 @@ def _save_capture_png(left: int, top: int, width: int, height: int, target: Path
     return str(target.resolve())
 
 
-def _active_window_info() -> dict:
+def _window_process_name(hwnd: int) -> str | None:
     _ensure_windows()
     _set_process_dpi_aware()
 
     user32 = ctypes.windll.user32
-    hwnd = user32.GetForegroundWindow()
-    if not hwnd:
-        raise RuntimeError("No active window found.")
+    kernel32 = ctypes.windll.kernel32
+
+    user32.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD)]
+    user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.QueryFullProcessImageNameW.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.LPWSTR,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    if not pid.value:
+        return None
+
+    process = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
+    if not process:
+        return None
+
+    try:
+        size = wintypes.DWORD(32768)
+        buffer = ctypes.create_unicode_buffer(size.value)
+        if not kernel32.QueryFullProcessImageNameW(process, 0, buffer, ctypes.byref(size)):
+            return None
+        return Path(buffer.value).name.lower()
+    finally:
+        kernel32.CloseHandle(process)
+
+
+def _window_info(hwnd: int) -> dict:
+    _ensure_windows()
+    _set_process_dpi_aware()
+
+    user32 = ctypes.windll.user32
+    user32.GetWindowRect.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.RECT)]
+    user32.GetWindowRect.restype = wintypes.BOOL
+    user32.GetWindowTextW.argtypes = [ctypes.c_void_p, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetWindowTextW.restype = ctypes.c_int
+    user32.GetClassNameW.argtypes = [ctypes.c_void_p, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetClassNameW.restype = ctypes.c_int
+    user32.IsWindowVisible.argtypes = [ctypes.c_void_p]
+    user32.IsWindowVisible.restype = wintypes.BOOL
+    user32.IsIconic.argtypes = [ctypes.c_void_p]
+    user32.IsIconic.restype = wintypes.BOOL
 
     rect = wintypes.RECT()
     if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
-        raise RuntimeError("Failed to get active window bounds.")
+        raise RuntimeError("Failed to get window bounds.")
 
     width = int(rect.right - rect.left)
     height = int(rect.bottom - rect.top)
     if width <= 0 or height <= 0:
-        raise RuntimeError("Active window has invalid bounds (possibly minimized).")
+        raise RuntimeError("Window has invalid bounds (possibly minimized).")
 
     title_buffer = ctypes.create_unicode_buffer(1024)
     user32.GetWindowTextW(hwnd, title_buffer, 1024)
+    class_buffer = ctypes.create_unicode_buffer(256)
+    user32.GetClassNameW(hwnd, class_buffer, 256)
 
     return {
+        "hwnd": int(hwnd),
         "x": int(rect.left),
         "y": int(rect.top),
         "width": width,
         "height": height,
         "title": title_buffer.value,
+        "class_name": class_buffer.value,
+        "is_visible": bool(user32.IsWindowVisible(hwnd)),
+        "is_minimized": bool(user32.IsIconic(hwnd)),
+        "process_name": _window_process_name(hwnd),
     }
+
+
+def _active_window_info() -> dict:
+    _ensure_windows()
+    _set_process_dpi_aware()
+
+    user32 = ctypes.windll.user32
+    user32.GetForegroundWindow.restype = ctypes.c_void_p
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd:
+        raise RuntimeError("No active window found.")
+
+    return _window_info(int(hwnd))
+
+
+def _is_windows_terminal_window(window: dict) -> bool:
+    class_name = str(window.get("class_name", "")).strip()
+    process_name = str(window.get("process_name", "")).strip().lower()
+    return (
+        class_name in WINDOW_TERMINAL_CLASS_NAMES
+        or process_name in WINDOW_TERMINAL_PROCESS_NAMES
+    )
+
+
+def _enumerate_top_level_windows() -> list[dict]:
+    _ensure_windows()
+    _set_process_dpi_aware()
+
+    user32 = ctypes.windll.user32
+    windows: list[dict] = []
+
+    enum_windows_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, ctypes.c_void_p, wintypes.LPARAM)
+
+    @enum_windows_proc
+    def _callback(hwnd, _lparam):
+        try:
+            window = _window_info(int(hwnd))
+        except RuntimeError:
+            return True
+
+        windows.append(window)
+        return True
+
+    if not user32.EnumWindows(_callback, 0):
+        raise RuntimeError("Failed to enumerate top-level windows.")
+
+    return windows
+
+
+def _windows_terminal_windows_to_hide(capture_rect: dict) -> list[dict]:
+    matches: list[dict] = []
+    for window in _enumerate_top_level_windows():
+        if not window.get("is_visible") or window.get("is_minimized"):
+            continue
+        if not _is_windows_terminal_window(window):
+            continue
+        if not _rects_intersect(window, capture_rect):
+            continue
+        matches.append(window)
+    return matches
+
+
+def _set_window_hidden(hwnd: int, hidden: bool) -> bool:
+    _ensure_windows()
+    _set_process_dpi_aware()
+
+    user32 = ctypes.windll.user32
+    user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    user32.ShowWindow.restype = wintypes.BOOL
+    command = SW_HIDE if hidden else SW_SHOW
+    return bool(user32.ShowWindow(hwnd, command))
+
+
+@contextmanager
+def _hidden_windows_terminal_windows(capture_rect: dict):
+    hidden_windows: list[dict] = []
+
+    if _env_flag(HIDE_FOREGROUND_WINDOWS_TERMINAL_ENV, True):
+        for window in _windows_terminal_windows_to_hide(capture_rect):
+            if _set_window_hidden(int(window["hwnd"]), True):
+                hidden_windows.append(window)
+
+        if hidden_windows:
+            time_module.sleep(HIDE_CAPTURE_SETTLE_SECONDS)
+
+    try:
+        yield hidden_windows
+    finally:
+        for window in reversed(hidden_windows):
+            _set_window_hidden(int(window["hwnd"]), False)
 
 
 @mcp.tool()
@@ -264,13 +450,20 @@ def capture_screen(output_path: str | None = None) -> dict:
     target = _default_output_path("capture", output_path)
     with mss.mss() as sct:
         monitor = sct.monitors[0]
-    saved = _save_capture_png(
+    capture_rect = _capture_rect(
         int(monitor["left"]),
         int(monitor["top"]),
         int(monitor["width"]),
         int(monitor["height"]),
-        target,
     )
+    with _hidden_windows_terminal_windows(capture_rect):
+        saved = _save_capture_png(
+            capture_rect["x"],
+            capture_rect["y"],
+            capture_rect["width"],
+            capture_rect["height"],
+            target,
+        )
 
     return {"saved_path": saved}
 
@@ -291,13 +484,20 @@ def capture_display(display: int | str | None = None, output_path: str | None = 
     selected = _resolve_display(displays, selector)
 
     target = _default_output_path(f"display{selected['index']}", output_path)
-    saved = _save_capture_png(
+    capture_rect = _capture_rect(
         int(selected["x"]),
         int(selected["y"]),
         int(selected["width"]),
         int(selected["height"]),
-        target,
     )
+    with _hidden_windows_terminal_windows(capture_rect):
+        saved = _save_capture_png(
+            capture_rect["x"],
+            capture_rect["y"],
+            capture_rect["width"],
+            capture_rect["height"],
+            target,
+        )
 
     return {
         "saved_path": saved,
@@ -323,7 +523,15 @@ def capture_region(x: int, y: int, width: int, height: int, output_path: str | N
         raise ValueError("width and height must be > 0")
 
     target = _default_output_path("region", output_path)
-    saved = _save_capture_png(x, y, width, height, target)
+    capture_rect = _capture_rect(x, y, width, height)
+    with _hidden_windows_terminal_windows(capture_rect):
+        saved = _save_capture_png(
+            capture_rect["x"],
+            capture_rect["y"],
+            capture_rect["width"],
+            capture_rect["height"],
+            target,
+        )
 
     return {
         "saved_path": saved,

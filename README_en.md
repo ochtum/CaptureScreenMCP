@@ -24,6 +24,7 @@ Default output directory: `C:\capture_screen`.
   - Captures the specified screen region and saves it as PNG.
 - `capture_active_window(output_path?: string)`
   - Captures the currently active window and saves it as PNG.
+  - Note: `capture_screen` / `capture_display` / `capture_region` temporarily hide visible `Windows Terminal` windows that overlap the capture area while capturing. `capture_active_window` is excluded so capturing the terminal itself still works.
 - `delete_all_capture_images()`
   - Deletes all capture image files directly under `CAPTURE_SCREEN_OUTPUT_DIR` (defaults to `C:\capture_screen`).
 - `delete_capture_images_by_datetime(target_date?: string, start_datetime?: string, end_datetime?: string)`
@@ -142,6 +143,7 @@ startup_timeout_sec = 30
 Note: Use either `WSL format (/mnt/c/...)` or `Windows format (C:\\...)` for `command`, depending on your runtime environment.
 Note: To change the default monitor target, set the `CAPTURE_SCREEN_DEFAULT_DISPLAY` environment variable (for example, `left`, `right`, `プライマリ`, `左`, `右`).
 Note: To change the output directory, set the `CAPTURE_SCREEN_OUTPUT_DIR` environment variable (defaults to `C:\capture_screen` when unset).
+Note: To disable temporarily hiding overlapping `Windows Terminal` windows during `capture_screen` / `capture_display` / `capture_region`, set `CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL=0`.
 
 ### Codex Example for Setting Output Directory
 
