@@ -1,0 +1,15 @@
+{
+  "name": "capture-screen",
+  "description": "Windows screen capture MCP server (stdio transport)",
+  "version": "0.1.0",
+  "transport": "stdio",
+  "command": "python",
+  "args": [
+    "server.py"
+  ],
+  "env": {
+    "CAPTURE_SCREEN_DEFAULT_DISPLAY": "primary",
+    "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen",
+    "CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL": "1"
+  }
+}

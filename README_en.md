@@ -5,30 +5,30 @@
 
 # CaptureScreenMCP
 
-This is an MCP server for screen capture on Windows.<br>
+An MCP server for screen capture on Windows.<br>
 It lets you show your current screen to AI.<br>
 You can use it for operation support, layout issue advice, or questions about error messages on screens where copy/paste is not possible.<br>
 Screen capture is implemented with `mss + Pillow + ctypes`, so no PowerShell call is required.<br>
 
 Default output directory: `C:\capture_screen`
 
-- Includes **Auto Hide Capture**
+- Includes the **Auto Hide Capture** feature
   - If a Windows Terminal window exists in the screenshot target area, all Windows Terminal windows in that area are hidden before capture and then restored afterward.
-  - You can simply ask something like: "Can you show me how to operate the system displayed on this monitor?" The AI can hide its own CLI window before taking a screenshot, then review the screen and guide you.
+  - You can simply say, "Can you show me how to operate the system shown on this monitor?" The AI can hide its own CLI window, take a screenshot, check the screen, and then guide you.
 
 ## Tools
 
 - `list_displays()`
-  - Returns connected monitor info (`index`, `is_primary`, `x`, `y`, `width`, `height`).
+  - Returns connected monitor information (`index`, `is_primary`, `x`, `y`, `width`, `height`).
 - `capture_screen(output_path?: string)`
   - Captures the entire desktop and saves it as PNG.
 - `capture_display(display?: int | "primary" | "left" | "right" | "プライマリ" | "左" | "右", output_path?: string)`
-  - Captures the specified monitor and saves it as PNG. If `display` is omitted, it uses environment variable `CAPTURE_SCREEN_DEFAULT_DISPLAY` (e.g., `left`, `右`); if unset, it uses `primary`.
+  - Captures the specified monitor and saves it as PNG. If `display` is omitted, it uses environment variable `CAPTURE_SCREEN_DEFAULT_DISPLAY` (e.g., `left`, `右`), and uses `primary` when unset.
 - `capture_region(x: int, y: int, width: int, height: int, output_path?: string)`
   - Captures the specified screen region and saves it as PNG.
 - `capture_active_window(output_path?: string)`
   - Captures the currently active window and saves it as PNG.
-  - Note: `capture_screen`, `capture_display`, and `capture_region` temporarily hide visible `Windows Terminal` windows that overlap the capture area until capture is complete. `capture_active_window` is excluded so terminal-window capture behavior is not broken.
+  - Note: `capture_screen` / `capture_display` / `capture_region` temporarily hide visible `Windows Terminal` windows that overlap the capture area until capture completes. `capture_active_window` is excluded because that can break terminal-window capture use cases.
 - `delete_all_capture_images()`
   - Deletes all captured image files directly under `CAPTURE_SCREEN_OUTPUT_DIR` (or `C:\capture_screen` if unset).
 - `delete_capture_images_by_datetime(target_date?: string, start_datetime?: string, end_datetime?: string)`
@@ -66,7 +66,7 @@ python -m pip install -r requirements.txt
 ### `capture_display(display?: ..., output_path?: string)`
 
 - "Capture only the primary monitor."
-- "I want you to check the left monitor. When I deleted a CloudFormation stack, the protected bucket remained. Even if I choose 'Disable', it still won't be deleted. What should I do?"
+- "Please check the left monitor. When I deleted a CloudFormation stack, the protected bucket remained. Even if I choose 'Disable', it still won't be deleted. What should I do?"
 - "Capture only `display=2`."
 
 ### `capture_region(x, y, width, height, output_path?: string)`
@@ -91,7 +91,8 @@ python -m pip install -r requirements.txt
 - "Delete only files in the range `2026-03-04 09:00` to `2026-03-04 18:00`."
 - "I want to delete captures from `2026-03-01` through `2026-03-03`."
 
-## Setup (Windows)
+## Setup
+### Windows
 
 ```powershell
 cd C:\MCP-PATH\CaptureScreenMCP
@@ -100,7 +101,7 @@ py -3 -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-## Setup (WSL)
+### WSL
 
 ```bash
 cd /mnt/c/MCP-PATH/CaptureScreenMCP
@@ -108,7 +109,8 @@ cd /mnt/c/MCP-PATH/CaptureScreenMCP
 ./.venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
 
-## Run (Windows)
+## Run
+### Windows
 
 ```powershell
 cd C:\MCP-PATH\CaptureScreenMCP
@@ -116,16 +118,36 @@ cd C:\MCP-PATH\CaptureScreenMCP
 python server.py
 ```
 
-## Run (WSL)
+### WSL
 
 ```bash
 cd /mnt/c/MCP-PATH/CaptureScreenMCP
 ./.venv/Scripts/python.exe server.py
 ```
 
-## Codex MCP Configuration
+## server.json (stdio manifest)
 
-### When using from WSL
+`server.json` at the repository root is a `stdio`-first run definition.
+
+```json
+{
+  "name": "capture-screen",
+  "transport": "stdio",
+  "command": "python",
+  "args": ["server.py"]
+}
+```
+
+Adjust `command` and `args` (and `env` if needed) for your runtime environment.
+
+## MCP configuration examples
+
+Note: In this README, configurations using `command` + `args` are all `stdio` connections (for clients where explicit `transport`/`type` is not required).
+Note: For clients that support it, you can explicitly set `type: "stdio"` (for example, Claude Code).
+
+### Codex
+
+#### When using from WSL
 
 ```toml
 [mcp_servers.capture-screen]
@@ -135,7 +157,7 @@ startup_timeout_sec = 30
 env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\MCP-PATH\\capture_screen", "WSLENV" = "CAPTURE_SCREEN_OUTPUT_DIR" }
 ```
 
-### When using natively on Windows
+#### When using natively on Windows
 
 ```toml
 [mcp_servers.capture-screen]
@@ -149,7 +171,7 @@ Note: To change the default target monitor, set `CAPTURE_SCREEN_DEFAULT_DISPLAY`
 Note: To change the output directory, set `CAPTURE_SCREEN_OUTPUT_DIR` (default: `C:\capture_screen`).
 Note: If you do not want to temporarily hide overlapping `Windows Terminal` windows in `capture_screen` / `capture_display` / `capture_region`, set `CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL=0`.
 
-### Example: Specify output directory in Codex
+#### Example: Specify output directory in Codex
 
 ```toml
 [mcp_servers.capture-screen]
@@ -159,11 +181,11 @@ startup_timeout_sec = 30
 env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 ```
 
-## GitHub Copilot MCP Configuration (VS Code)
+### GitHub Copilot (VS Code)
 
 Create or update `.vscode/mcp.json` and set the following.
 
-### When using natively on Windows
+#### When using natively on Windows
 
 ```json
 {
@@ -196,11 +218,11 @@ Example with `CAPTURE_SCREEN_OUTPUT_DIR`:
 }
 ```
 
-## Claude Desktop MCP Configuration
+### Claude Desktop
 
-Add the following under `mcpServers` in `%USERPROFILE%\\AppData\\Roaming\\Claude\\claude_desktop_config.json`.
+Add the following under `mcpServers` in `%USERPROFILE%\AppData\Roaming\Claude\claude_desktop_config.json`.
 
-### When using natively on Windows
+#### When using natively on Windows
 
 ```json
 {
@@ -233,7 +255,7 @@ Example with `CAPTURE_SCREEN_OUTPUT_DIR`:
 }
 ```
 
-## Claude Code MCP Configuration
+### Claude Code
 
 Add the following under `mcpServers` in `%USERPROFILE%\\.claude.json`.
 

@@ -636,4 +636,4 @@ def delete_capture_images_by_datetime(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="stdio")

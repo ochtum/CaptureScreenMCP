@@ -91,7 +91,8 @@ python -m pip install -r requirements.txt
 - 「`2026-03-04 09:00`～`2026-03-04 18:00` の範囲だけ削除してください。」
 - 「`2026-03-01` から `2026-03-03` までの分を削除したいです。」
 
-## セットアップ（Windows）
+## セットアップ
+### Windows
 
 ```powershell
 cd C:\MCP-PATH\CaptureScreenMCP
@@ -100,7 +101,7 @@ py -3 -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-## セットアップ（WSL）
+### WSL
 
 ```bash
 cd /mnt/c/MCP-PATH/CaptureScreenMCP
@@ -108,7 +109,8 @@ cd /mnt/c/MCP-PATH/CaptureScreenMCP
 ./.venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
 
-## 実行（Windows）
+## 実行
+### Windows
 
 ```powershell
 cd C:\MCP-PATH\CaptureScreenMCP
@@ -116,16 +118,37 @@ cd C:\MCP-PATH\CaptureScreenMCP
 python server.py
 ```
 
-## 実行（WSL）
+### WSL
 
 ```bash
 cd /mnt/c/MCP-PATH/CaptureScreenMCP
 ./.venv/Scripts/python.exe server.py
 ```
 
-## Codex MCP設定
+## server.json（stdio マニフェスト）
 
-### WSL から使う場合
+リポジトリ直下の `server.json` は、`stdio` 前提の実行定義です。
+
+```json
+{
+  "name": "capture-screen",
+  "transport": "stdio",
+  "command": "python",
+  "args": ["server.py"]
+}
+```
+
+利用環境に合わせて `command` と `args`（必要なら `env`）を調整して使ってください。
+
+## MCP設定例
+
+注: このREADME内の `command` + `args` 形式の設定は、いずれも `stdio` 接続です（`transport`/`type` の明示が不要なクライアント向け）。
+注: `type: "stdio"` を書けるクライアントでは明示して構いません（例: Claude Code）。
+
+### Codex
+
+
+#### WSL から使う場合
 
 ```toml
 [mcp_servers.capture-screen]
@@ -135,7 +158,7 @@ startup_timeout_sec = 30
 env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\MCP-PATH\\capture_screen", "WSLENV" = "CAPTURE_SCREEN_OUTPUT_DIR" }
 ```
 
-### Windows ネイティブで使う場合
+#### Windows ネイティブで使う場合
 
 ```toml
 [mcp_servers.capture-screen]
@@ -149,7 +172,7 @@ startup_timeout_sec = 30
 注: 出力先ディレクトリを変更したい場合は、環境変数 `CAPTURE_SCREEN_OUTPUT_DIR` を設定します（未設定時は `C:\capture_screen`）。
 注: `capture_screen` / `capture_display` / `capture_region` で重なっている `Windows Terminal` を一時的に隠したくない場合は、環境変数 `CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL=0` を設定してください。
 
-### Codex で出力先ディレクトリを指定する例
+#### Codex で出力先ディレクトリを指定する例
 
 ```toml
 [mcp_servers.capture-screen]
@@ -159,11 +182,11 @@ startup_timeout_sec = 30
 env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 ```
 
-## GitHub Copilot MCP設定（VS Code）
+### GitHub Copilot（VS Code）
 
 `.vscode/mcp.json` を作成または更新し、以下を設定します。
 
-### Windows ネイティブで使う場合
+#### Windows ネイティブで使う場合
 
 ```json
 {
@@ -196,12 +219,12 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 }
 ```
 
-## Claude Desktop MCP設定
+### Claude Desktop
 
 `%USERPROFILE%\AppData\Roaming\Claude\claude_desktop_config.json` の `mcpServers` に以下を追加します。
 
 
-### Windows ネイティブで使う場合
+#### Windows ネイティブで使う場合
 
 ```json
 {
@@ -234,7 +257,7 @@ env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
 }
 ```
 
-## Claude Code MCP設定
+### Claude Code
 
 `%USERPROFILE%\.claude.json` の `mcpServers` に以下を追加します。
 
