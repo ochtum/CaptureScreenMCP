@@ -25,6 +25,7 @@ HIDE_CAPTURE_SETTLE_SECONDS = 0.15
 MONITORINFOF_PRIMARY = 1
 CCHDEVICENAME = 32
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+DWMWA_CLOAKED = 14
 SW_HIDE = 0
 SW_SHOW = 5
 
@@ -296,6 +297,33 @@ def _window_process_name(hwnd: int) -> str | None:
         kernel32.CloseHandle(process)
 
 
+def _is_window_cloaked(hwnd: int) -> bool:
+    _ensure_windows()
+
+    try:
+        dwmapi = ctypes.windll.dwmapi
+    except AttributeError:
+        return False
+
+    cloaked = wintypes.DWORD()
+    dwmapi.DwmGetWindowAttribute.argtypes = [
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+    dwmapi.DwmGetWindowAttribute.restype = ctypes.c_long
+    result = dwmapi.DwmGetWindowAttribute(
+        hwnd,
+        DWMWA_CLOAKED,
+        ctypes.byref(cloaked),
+        ctypes.sizeof(cloaked),
+    )
+    if result != 0:
+        return False
+    return bool(cloaked.value)
+
+
 def _window_info(hwnd: int) -> dict:
     _ensure_windows()
     _set_process_dpi_aware()
@@ -336,6 +364,7 @@ def _window_info(hwnd: int) -> dict:
         "class_name": class_buffer.value,
         "is_visible": bool(user32.IsWindowVisible(hwnd)),
         "is_minimized": bool(user32.IsIconic(hwnd)),
+        "is_cloaked": _is_window_cloaked(int(hwnd)),
         "process_name": _window_process_name(hwnd),
     }
 
@@ -387,10 +416,18 @@ def _enumerate_top_level_windows() -> list[dict]:
     return windows
 
 
+def _is_effectively_visible_window(window: dict) -> bool:
+    return (
+        bool(window.get("is_visible"))
+        and not bool(window.get("is_minimized"))
+        and not bool(window.get("is_cloaked"))
+    )
+
+
 def _windows_terminal_windows_to_hide(capture_rect: dict) -> list[dict]:
     matches: list[dict] = []
     for window in _enumerate_top_level_windows():
-        if not window.get("is_visible") or window.get("is_minimized"):
+        if not _is_effectively_visible_window(window):
             continue
         if not _is_windows_terminal_window(window):
             continue
@@ -400,14 +437,13 @@ def _windows_terminal_windows_to_hide(capture_rect: dict) -> list[dict]:
     return matches
 
 
-def _set_window_hidden(hwnd: int, hidden: bool) -> bool:
+def _show_window(hwnd: int, command: int) -> bool:
     _ensure_windows()
     _set_process_dpi_aware()
 
     user32 = ctypes.windll.user32
     user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
     user32.ShowWindow.restype = wintypes.BOOL
-    command = SW_HIDE if hidden else SW_SHOW
     return bool(user32.ShowWindow(hwnd, command))
 
 
@@ -417,7 +453,8 @@ def _hidden_windows_terminal_windows(capture_rect: dict):
 
     if _env_flag(HIDE_FOREGROUND_WINDOWS_TERMINAL_ENV, True):
         for window in _windows_terminal_windows_to_hide(capture_rect):
-            if _set_window_hidden(int(window["hwnd"]), True):
+            was_visible = _show_window(int(window["hwnd"]), SW_HIDE)
+            if was_visible:
                 hidden_windows.append(window)
 
         if hidden_windows:
@@ -427,7 +464,7 @@ def _hidden_windows_terminal_windows(capture_rect: dict):
         yield hidden_windows
     finally:
         for window in reversed(hidden_windows):
-            _set_window_hidden(int(window["hwnd"]), False)
+            _show_window(int(window["hwnd"]), SW_SHOW)
 
 
 @mcp.tool()
