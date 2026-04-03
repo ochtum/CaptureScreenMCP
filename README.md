@@ -5,293 +5,99 @@
 
 # CaptureScreenMCP
 
-Windows向けの画面キャプチャ用MCPサーバーです。<br>
-現在見ている画面をAIに見せることができます。<br>
-操作のサポート、デザイン崩れのアドバイス、コピペできない画面でのエラーメッセージに関する質問などにご利用いただけます。<br>
-画面キャプチャ処理は `mss + Pillow + ctypes` で実装しており、PowerShell呼び出しは不要です。<br>
+<!-- mcp-name: io.github.junichi-takeda/capture-screen -->
 
-デフォルトの出力先ディレクトリ: `C:\capture_screen`
+Windows 向けのローカル実行型 MCP サーバーです（`stdio` transport）。
+C# / .NET 10 で実装されており、画面キャプチャとキャプチャ画像削除ツールを提供します。
 
-- **Auto Hide Capture** 機能搭載
-  - スクショ領域上にWindowsTerminalが存在した場合、その領域内のすべてのWindowsTerminalを非表示にしてからスクショを取り、その後元に戻します。
-   - 「このモニタに映っているシステムの操作を方法を教えてほしいんですけど」と普通に伝えるだけで、「自身のCLIウィンドウ」を非表示にしてからスクショをとって画面確認し、システムの操作方法を教えてくれます。
+## 何ができるか
 
-## ツール
+- 接続ディスプレイ情報の取得
+- デスクトップ全体、指定ディスプレイ、指定領域、アクティブウィンドウの PNG キャプチャ
+- 出力先ディレクトリ内のキャプチャ画像一括削除
+- 日付/日時範囲でのキャプチャ画像削除
+- `capture_screen` / `capture_display` / `capture_region` 実行時に、撮影領域に重なった `Windows Terminal` を一時的に非表示化（既定で有効）
+
+## 利用可能な Tools
 
 - `list_displays()`
-  - 接続されているモニター情報（`index`, `is_primary`, `x`, `y`, `width`, `height`）を返します。
-- `capture_screen(output_path?: string)`
-  - デスクトップ全体をキャプチャし、PNGとして保存します。
-- `capture_display(display?: int | "primary" | "left" | "right" | "プライマリ" | "左" | "右", output_path?: string)`
-  - 指定したモニターをキャプチャし、PNGとして保存します。`display` を省略した場合は環境変数 `CAPTURE_SCREEN_DEFAULT_DISPLAY`（例: `left`, `右`）を使用し、未設定時は `primary` を使います。
-- `capture_region(x: int, y: int, width: int, height: int, output_path?: string)`
-  - 指定した画面領域をキャプチャし、PNGとして保存します。
-- `capture_active_window(output_path?: string)`
-  - 現在アクティブなウィンドウをキャプチャし、PNGとして保存します。
-  - 注: `capture_screen` / `capture_display` / `capture_region` は、撮影範囲に重なっている可視状態の `Windows Terminal` ウィンドウを、撮影完了まで一時的に非表示にします。`capture_active_window` は端末自体を撮る用途を壊しやすいため対象外です。
+- `capture_screen(outputPath?: string)`
+- `capture_display(display?: int | string, outputPath?: string)`
+- `capture_region(x: int, y: int, width: int, height: int, outputPath?: string)`
+- `capture_active_window(outputPath?: string)`
 - `delete_all_capture_images()`
-  - `CAPTURE_SCREEN_OUTPUT_DIR`（未設定時は `C:\capture_screen`）直下のキャプチャ画像ファイルをすべて削除します。
-- `delete_capture_images_by_datetime(target_date?: string, start_datetime?: string, end_datetime?: string)`
-  - ファイル更新日時を基準に、指定日または日時範囲に一致するキャプチャ画像ファイルを削除します。
-  - `target_date` は `YYYY-MM-DD`、`start_datetime`/`end_datetime` は `YYYY-MM-DD HH:MM[:SS]` または `YYYY-MM-DDTHH:MM[:SS]` 形式です。
+- `delete_capture_images_by_datetime(targetDate?: string, startDatetime?: string, endDatetime?: string)`
 
-## MCP実行前に必要なPythonライブラリ
+## 必要環境
 
-以下のライブラリをインストールしてください（`requirements.txt` に含まれています）。
+- Windows
+- .NET 10 SDK（ローカル実行時）
 
-- `mcp>=1.0.0`
-- `mss>=9.0.1`
-- `Pillow>=10.0.0`
+## 環境変数
 
-インストールコマンド:
+- `CAPTURE_SCREEN_DEFAULT_DISPLAY`
+  - `capture_display` で `display` 省略時の既定値
+  - 例: `primary`, `left`, `right`, `プライマリ`, `左`, `右`, `2`
+- `CAPTURE_SCREEN_OUTPUT_DIR`
+  - 保存先ディレクトリ（既定: `C:\capture_screen`）
+- `CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL`
+  - `1/true/on` で有効、`0/false/off` で無効
+  - 既定は有効
 
-```bash
-python -m pip install -r requirements.txt
-```
+## ローカルでの起動方法
 
-## ツール別の使用例（プロンプト例）
-
-### `list_displays()`
-
-- 「接続されているモニター一覧を取得して、`index` と解像度を教えてください。」
-- 「プライマリモニターがどれか確認したいので、`list_displays` を実行してください。」
-- 「モニターの配置（`x`, `y`）を見て、左右どちらに拡張されているか教えてください。」
-
-### `capture_screen(output_path?: string)`
-
-- 「画面全体をキャプチャして保存してください。」
-- 「デスクトップ全体を `C:\\capture_screen\\full_desktop.png` に保存してください。」
-- 「今の全モニター表示を1枚の画像として取得してください。」
-
-### `capture_display(display?: ..., output_path?: string)`
-
-- 「プライマリモニターだけをキャプチャしてください。」
-- 「左モニタを見てほしいんですけど、CloudFormationでスタックを削除したときに、保護されたバケットに残ってしまいまして、、、「無効にする」にしても消えない状態なんですけど、どうしたらいいですかね？」
-- 「`display=2` だけキャプチャしてください。」
-
-### `capture_region(x, y, width, height, output_path?: string)`
-
-- 「`保護されたバケット`の領域だけをキャプチャとってください」
-- 「エラーが出ているダイアログ周辺だけ撮りたいので、指定領域を保存してください。」
-- 「今キャプチャした画像を確認してほしいんですけど、見切れています」
-
-### `capture_active_window(output_path?: string)`
-
-- 「現在アクティブなウィンドウだけキャプチャしてください。」
-- 「今フォーカスしているアプリ画面を `C:\\capture_screen\\active_window.png` に保存してください。」
-- 「ブラウザのウィンドウだけを撮ってください。」
-
-### `delete_all_capture_images()`
-
-- 「キャプチャ画像を全部削除してください。」
-
-### `delete_capture_images_by_datetime(target_date?, start_datetime?, end_datetime?)`
-
-- 「`2026-03-04` のキャプチャ画像を削除してください。」
-- 「`2026-03-04 09:00`～`2026-03-04 18:00` の範囲だけ削除してください。」
-- 「`2026-03-01` から `2026-03-03` までの分を削除したいです。」
-
-## セットアップ
-### Windows
+### ビルド
 
 ```powershell
-cd C:\MCP-PATH\CaptureScreenMCP
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+dotnet restore
+dotnet build
 ```
 
-### WSL
-
-```bash
-cd /mnt/c/MCP-PATH/CaptureScreenMCP
-/mnt/c/Windows/py.exe -3 -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements.txt
-```
-
-## 実行
-### Windows
+### MCP サーバー起動（stdio）
 
 ```powershell
-cd C:\MCP-PATH\CaptureScreenMCP
-.\.venv\Scripts\Activate.ps1
-python server.py
+dotnet run --project .
 ```
 
-### WSL
+## 接続設定例
 
-```bash
-cd /mnt/c/MCP-PATH/CaptureScreenMCP
-./.venv/Scripts/python.exe server.py
-```
-
-## server.json（stdio マニフェスト）
-
-リポジトリ直下の `server.json` は、`stdio` 前提の実行定義です。
-
-```json
-{
-  "name": "capture-screen",
-  "transport": "stdio",
-  "command": "python",
-  "args": ["server.py"]
-}
-```
-
-利用環境に合わせて `command` と `args`（必要なら `env`）を調整して使ってください。
-
-## MCP設定例
-
-注: このREADME内の `command` + `args` 形式の設定は、いずれも `stdio` 接続です（`transport`/`type` の明示が不要なクライアント向け）。
-注: `type: "stdio"` を書けるクライアントでは明示して構いません（例: Claude Code）。
-
-### Codex
-
-
-#### WSL から使う場合
-
-```toml
-[mcp_servers.capture-screen]
-command = "/mnt/c/MCP-PATH/CaptureScreenMCP/.venv/Scripts/python.exe"
-args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
-startup_timeout_sec = 30
-env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\MCP-PATH\\capture_screen", "WSLENV" = "CAPTURE_SCREEN_OUTPUT_DIR" }
-```
-
-#### Windows ネイティブで使う場合
-
-```toml
-[mcp_servers.capture-screen]
-command = "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe"
-args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
-startup_timeout_sec = 30
-```
-
-注: `command` は実行環境に合わせて `WSL形式(/mnt/c/...)` か `Windows形式(C:\\...)` を使い分けてください。
-注: 既定の対象モニターを変更したい場合は、環境変数 `CAPTURE_SCREEN_DEFAULT_DISPLAY` を設定します（例: `left`, `right`, `プライマリ`, `左`, `右`）。
-注: 出力先ディレクトリを変更したい場合は、環境変数 `CAPTURE_SCREEN_OUTPUT_DIR` を設定します（未設定時は `C:\capture_screen`）。
-注: `capture_screen` / `capture_display` / `capture_region` で重なっている `Windows Terminal` を一時的に隠したくない場合は、環境変数 `CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL=0` を設定してください。
-
-#### Codex で出力先ディレクトリを指定する例
-
-```toml
-[mcp_servers.capture-screen]
-command = "/mnt/c/MCP-PATH/CaptureScreenMCP/.venv/Scripts/python.exe"
-args = ["C:\\MCP-PATH\\CaptureScreenMCP\\server.py"]
-startup_timeout_sec = 30
-env = { "CAPTURE_SCREEN_OUTPUT_DIR" = "C:\\capture_screen" }
-```
-
-### GitHub Copilot（VS Code）
-
-`.vscode/mcp.json` を作成または更新し、以下を設定します。
-
-#### Windows ネイティブで使う場合
+### Codex / Claude Code / VS Code 互換（stdio）
 
 ```json
 {
   "servers": {
     "capture-screen": {
-      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
-      "args": [
-        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
-      ]
-    }
-  }
-}
-```
-
-`CAPTURE_SCREEN_OUTPUT_DIR` を指定する場合の例:
-
-```json
-{
-  "servers": {
-    "capture-screen": {
-      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
-      "args": [
-        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
-      ],
-      "env": {
-        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
-      }
-    }
-  }
-}
-```
-
-### Claude Desktop
-
-`%USERPROFILE%\AppData\Roaming\Claude\claude_desktop_config.json` の `mcpServers` に以下を追加します。
-
-
-#### Windows ネイティブで使う場合
-
-```json
-{
-  "mcpServers": {
-    "capture-screen": {
-      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
-      "args": [
-        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
-      ]
-    }
-  }
-}
-```
-
-`CAPTURE_SCREEN_OUTPUT_DIR` を指定する場合の例:
-
-```json
-{
-  "mcpServers": {
-    "capture-screen": {
-      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
-      "args": [
-        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
-      ],
-      "env": {
-        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
-      }
-    }
-  }
-}
-```
-
-### Claude Code
-
-`%USERPROFILE%\.claude.json` の `mcpServers` に以下を追加します。
-
-```json
-{
-  "mcpServers": {
-    "capture-screen": {
       "type": "stdio",
-      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
-      "args": [
-        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
-      ]
-    }
-  }
-}
-```
-
-`CAPTURE_SCREEN_OUTPUT_DIR` を指定する場合の例:
-
-```json
-{
-  "mcpServers": {
-    "capture-screen": {
-      "type": "stdio",
-      "command": "C:\\MCP-PATH\\CaptureScreenMCP\\.venv\\Scripts\\python.exe",
-      "args": [
-        "C:\\MCP-PATH\\CaptureScreenMCP\\server.py"
-      ],
+      "command": "dotnet",
+      "args": ["run", "--project", "."],
       "env": {
-        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen"
+        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen",
+        "CAPTURE_SCREEN_DEFAULT_DISPLAY": "primary",
+        "CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL": "1"
       }
     }
   }
 }
 ```
 
-## ❗このプロジェクトは MIT ライセンスの下で提供されています。詳細は LICENSE ファイルをご覧ください。
+## NuGet 公開（ローカル実行型 MCP サーバー配布）
+
+1. `dotnet pack -c Release`
+2. `dotnet nuget push bin/Release/*.nupkg --api-key <NUGET_API_KEY> --source https://api.nuget.org/v3/index.json`
+
+このリポジトリには、NuGet MCP 公開向けメタデータとして以下を含みます。
+
+- `.mcp/server.json`
+- `README.md` の `<!-- mcp-name: ... -->` コメント
+
+## 権限と注意点
+
+- 本サーバーはローカル実行型です。MCP クライアントと同じユーザー権限で動作します。
+- 画面キャプチャ結果はローカルファイルとして保存されます。機密情報が映り込む可能性に注意してください。
+- 画像削除ツールは `CAPTURE_SCREEN_OUTPUT_DIR` 直下の画像ファイルを削除します。
+- Windows 専用実装です。Windows 以外で実行するとエラーになります。
+
+## マニフェスト
+
+- 開発実行用: `server.json`
+- NuGet MCP 公開用: `.mcp/server.json`

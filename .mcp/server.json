@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static2.1.nuget.org/schema/mcp/server.v1.json",
+  "name": "io.github.junichi-takeda/capture-screen",
+  "description": "Windows screen capture MCP server with display/window/region capture tools and capture cleanup tools.",
+  "packages": [
+    {
+      "registry_name": "nuget",
+      "name": "CaptureScreenMcp",
+      "version": "1.0.0",
+      "package_arguments": [],
+      "environment_variables": [
+        {
+          "name": "CAPTURE_SCREEN_DEFAULT_DISPLAY",
+          "description": "Default display selector when capture_display display argument is omitted. Values: primary,left,right,プライマリ,左,右 or monitor index.",
+          "is_required": false,
+          "is_secret": false
+        },
+        {
+          "name": "CAPTURE_SCREEN_OUTPUT_DIR",
+          "description": "Default output directory for PNG captures. Default is C:\\capture_screen.",
+          "is_required": false,
+          "is_secret": false
+        },
+        {
+          "name": "CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL",
+          "description": "Set 0/false/off to disable temporary hiding of overlapping Windows Terminal windows during capture_screen/capture_display/capture_region.",
+          "is_required": false,
+          "is_secret": false
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/junichi-takeda/CaptureScreenMCP",
+    "source": "github"
+  },
+  "version_detail": {
+    "version": "1.0.0"
+  }
+}
