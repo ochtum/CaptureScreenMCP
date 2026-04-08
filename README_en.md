@@ -5,7 +5,7 @@
 
 # CaptureScreenMCP
 
-<!-- mcp-name: io.github.junichi-takeda/capture-screen -->
+<!-- mcp-name: io.github.ochtum/capture-screen -->
 
 A local MCP server for Windows (`stdio` transport).
 Implemented in C# / .NET 10. It provides screen-capture and capture-file cleanup tools.
@@ -56,7 +56,7 @@ dotnet build
 ### Run MCP server (stdio)
 
 ```powershell
-dotnet run --project .
+dotnet run --project src
 ```
 
 ## Connection Example
@@ -69,7 +69,7 @@ dotnet run --project .
     "capture-screen": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["run", "--project", "."],
+      "args": ["run", "--project", "src"],
       "env": {
         "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen",
         "CAPTURE_SCREEN_DEFAULT_DISPLAY": "primary",

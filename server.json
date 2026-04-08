@@ -1,13 +1,13 @@
 {
   "name": "capture-screen",
   "description": "Windows screen capture MCP server (stdio transport)",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "transport": "stdio",
   "command": "dotnet",
   "args": [
     "run",
     "--project",
-    "."
+    "src"
   ],
   "env": {
     "CAPTURE_SCREEN_DEFAULT_DISPLAY": "primary",

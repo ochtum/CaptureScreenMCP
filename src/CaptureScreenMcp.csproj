@@ -6,13 +6,15 @@
     <Nullable>enable</Nullable>
 
     <PackageId>CaptureScreenMcp</PackageId>
-    <Version>1.0.0</Version>
-    <Authors>junichi.takeda</Authors>
+    <Version>1.0.3</Version>
+    <Authors>ochtum</Authors>
     <Description>Windows screen capture MCP server (stdio transport)</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageTags>mcp;mcpserver;screen-capture;windows</PackageTags>
-    <RepositoryUrl>https://github.com/junichi-takeda/CaptureScreenMCP</RepositoryUrl>
+    <RepositoryUrl>https://github.com/ochtum/CaptureScreenMCP</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>capture-screen-mcp</ToolCommandName>
     <PackageType>McpServer</PackageType>
@@ -25,8 +27,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
-    <None Include="LICENSE" Pack="true" PackagePath="\" />
-    <None Include=".mcp/server.json" Pack="true" PackagePath=".mcp/" />
+    <None Include="../README.md" Pack="true" PackagePath="\" Link="README.md" />
+    <None Include="../LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
+    <None Include="../.mcp/server.json" Pack="true" PackagePath=".mcp/" Link=".mcp/server.json" />
   </ItemGroup>
 </Project>

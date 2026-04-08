@@ -5,7 +5,7 @@
 
 # CaptureScreenMCP
 
-<!-- mcp-name: io.github.junichi-takeda/capture-screen -->
+<!-- mcp-name: io.github.ochtum/capture-screen -->
 
 Windows 向けのローカル実行型 MCP サーバーです（`stdio` transport）。
 C# / .NET 10 で実装されており、画面キャプチャとキャプチャ画像削除ツールを提供します。
@@ -56,7 +56,7 @@ dotnet build
 ### MCP サーバー起動（stdio）
 
 ```powershell
-dotnet run --project .
+dotnet run --project src
 ```
 
 ## 接続設定例
@@ -69,7 +69,7 @@ dotnet run --project .
     "capture-screen": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["run", "--project", "."],
+      "args": ["run", "--project", "src"],
       "env": {
         "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen",
         "CAPTURE_SCREEN_DEFAULT_DISPLAY": "primary",
