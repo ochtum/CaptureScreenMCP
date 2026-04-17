@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 
     <PackageId>CaptureScreenMcp</PackageId>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <Authors>ochtum</Authors>
     <Description>Windows screen capture MCP server (stdio transport)</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>

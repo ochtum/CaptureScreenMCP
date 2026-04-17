@@ -8,7 +8,12 @@
 <!-- mcp-name: io.github.ochtum/capture-screen -->
 
 Windows 向けのローカル実行型 MCP サーバーです（`stdio` transport）。
-C# / .NET 10 で実装されており、画面キャプチャとキャプチャ画像削除ツールを提供します。
+C# / .NET 10 の .NET tool として NuGet.org に公開しており、画面キャプチャとキャプチャ画像削除ツールを提供します。
+
+- NuGet: [CaptureScreenMcp](https://www.nuget.org/packages/CaptureScreenMcp)
+- MCP Registry name: `io.github.ochtum/capture-screen`
+- NuGet package ID: `CaptureScreenMcp`
+- Tool command: `capture-screen-mcp`
 
 ## 何ができるか
 
@@ -31,7 +36,9 @@ C# / .NET 10 で実装されており、画面キャプチャとキャプチャ�
 ## 必要環境
 
 - Windows
-- .NET 10 SDK（ローカル実行時）
+- .NET 10 SDK
+  - NuGet から MCP サーバーとして起動する場合は `dnx` を使用します。
+  - 開発中にソースから起動する場合は `dotnet run` を使用します。
 
 ## 環境変数
 
@@ -44,7 +51,35 @@ C# / .NET 10 で実装されており、画面キャプチャとキャプチャ�
   - `1/true/on` で有効、`0/false/off` で無効
   - 既定は有効
 
-## ローカルでの起動方法
+## NuGet から利用する
+
+NuGet.org の公開済みパッケージを MCP クライアントから起動する場合は、`dnx` で `CaptureScreenMcp` を実行します。
+
+```json
+{
+  "servers": {
+    "capture-screen": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["CaptureScreenMcp@1.0.4", "--yes"],
+      "env": {
+        "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen",
+        "CAPTURE_SCREEN_DEFAULT_DISPLAY": "primary",
+        "CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL": "1"
+      }
+    }
+  }
+}
+```
+
+通常の .NET tool としてインストールして起動することもできます。
+
+```powershell
+dotnet tool install --global CaptureScreenMcp --version 1.0.4
+capture-screen-mcp
+```
+
+## ソースから開発実行する
 
 ### ビルド
 
@@ -59,9 +94,7 @@ dotnet build
 dotnet run --project src
 ```
 
-## 接続設定例
-
-### Codex / Claude Code / VS Code 互換（stdio）
+開発中にソースツリーを直接参照する場合の接続設定例です。
 
 ```json
 {
@@ -80,15 +113,34 @@ dotnet run --project src
 }
 ```
 
-## NuGet 公開（ローカル実行型 MCP サーバー配布）
+## 公開手順
 
-1. `dotnet pack -c Release`
-2. `dotnet nuget push bin/Release/*.nupkg --api-key <NUGET_API_KEY> --source https://api.nuget.org/v3/index.json`
+### NuGet.org へ公開する
 
-このリポジトリには、NuGet MCP 公開向けメタデータとして以下を含みます。
+1. `src/CaptureScreenMcp.csproj` の `<Version>` を更新します。
+2. `.mcp/server.json` のトップレベル `version` と `packages[0].version` を同じバージョンに更新します。
+3. `dotnet pack src/CaptureScreenMcp.csproj -c Release`
+4. `dotnet nuget push src/bin/Release/*.nupkg --api-key <NUGET_API_KEY> --source https://api.nuget.org/v3/index.json`
+
+このパッケージは NuGet MCP サーバーとして認識されるため、以下を含めています。
 
 - `.mcp/server.json`
-- `README.md` の `<!-- mcp-name: ... -->` コメント
+- `README.md` の `<!-- mcp-name: io.github.ochtum/capture-screen -->` コメント
+- `McpServer` package type
+- .NET tool 設定（`PackAsTool` / `ToolCommandName`）
+
+### MCP Registry へ公開する
+
+NuGet.org への公開だけでは、`registry.modelcontextprotocol.io` には自動掲載されません。
+NuGet.org のパッケージ検証が完了してから、MCP Publisher で `.mcp/server.json` を公開します。
+
+```powershell
+mcp-publisher login github
+mcp-publisher publish .mcp/server.json
+```
+
+`server.json` の `name` と、NuGet パッケージに含まれる `README.md` の `mcp-name` は一致している必要があります。
+また、`packages[0].version` は `mcp-name` が一致する NuGet パッケージのバージョンを指している必要があります。
 
 ## 権限と注意点
 

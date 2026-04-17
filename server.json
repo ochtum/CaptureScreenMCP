@@ -1,7 +1,7 @@
 {
   "name": "capture-screen",
   "description": "Windows screen capture MCP server (stdio transport)",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "transport": "stdio",
   "command": "dotnet",
   "args": [
