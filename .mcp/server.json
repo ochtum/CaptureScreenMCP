@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.ochtum/capture-screen",
+  "version": "1.0.4",
+  "description": "Windows screen capture MCP server with display, region, and active-window capture tools.",
+  "title": "Capture Screen MCP",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "registryBaseUrl": "https://api.nuget.org",
+      "identifier": "CaptureScreenMcp",
+      "version": "1.0.4",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "dnx",
+      "packageArguments": [],
+      "environmentVariables": [
+        {
+          "name": "CAPTURE_SCREEN_DEFAULT_DISPLAY",
+          "description": "Default display selector when capture_display display argument is omitted.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CAPTURE_SCREEN_OUTPUT_DIR",
+          "description": "Default output directory for PNG captures. Default is C:\\capture_screen.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CAPTURE_SCREEN_HIDE_FOREGROUND_WINDOWS_TERMINAL",
+          "description": "Set 0/false/off to disable temporary hiding of overlapping Windows Terminal windows during capture.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/ochtum/CaptureScreenMCP",
+    "source": "github"
+  }
+}
