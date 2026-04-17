@@ -1,15 +1,15 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.ochtum/capture-screen",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Windows screen capture MCP server with display, region, and active-window capture tools.",
   "title": "Capture Screen MCP",
   "packages": [
     {
       "registryType": "nuget",
-      "registryBaseUrl": "https://api.nuget.org",
+      "registryBaseUrl": "https://api.nuget.org/v3/index.json",
       "identifier": "CaptureScreenMcp",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "transport": {
         "type": "stdio"
       },

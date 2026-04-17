@@ -6,10 +6,11 @@
     <Nullable>enable</Nullable>
 
     <PackageId>CaptureScreenMcp</PackageId>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <Authors>ochtum</Authors>
     <Description>Windows screen capture MCP server (stdio transport)</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageTags>mcp;mcpserver;screen-capture;windows</PackageTags>
     <RepositoryUrl>https://github.com/ochtum/CaptureScreenMCP</RepositoryUrl>
@@ -28,6 +29,7 @@
 
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="\" Link="README.md" />
+    <None Include="../icon.png" Pack="true" PackagePath="\" Link="icon.png" />
     <None Include="../LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
     <None Include="../.mcp/server.json" Pack="true" PackagePath=".mcp/" Link=".mcp/server.json" />
   </ItemGroup>
