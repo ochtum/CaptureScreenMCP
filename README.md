@@ -61,7 +61,7 @@ NuGet.org の公開済みパッケージを MCP クライアントから起動�
     "capture-screen": {
       "type": "stdio",
       "command": "dnx",
-      "args": ["CaptureScreenMcp@1.0.4", "--yes"],
+      "args": ["CaptureScreenMcp@1.0.5", "--yes"],
       "env": {
         "CAPTURE_SCREEN_OUTPUT_DIR": "C:\\capture_screen",
         "CAPTURE_SCREEN_DEFAULT_DISPLAY": "primary",
@@ -75,7 +75,7 @@ NuGet.org の公開済みパッケージを MCP クライアントから起動�
 通常の .NET tool としてインストールして起動することもできます。
 
 ```powershell
-dotnet tool install --global CaptureScreenMcp --version 1.0.4
+dotnet tool install --global CaptureScreenMcp --version 1.0.5
 capture-screen-mcp
 ```
 
@@ -126,6 +126,7 @@ dotnet run --project src
 
 - `.mcp/server.json`
 - `README.md` の `<!-- mcp-name: io.github.ochtum/capture-screen -->` コメント
+- `PackageIcon` に指定した `icon.png`
 - `McpServer` package type
 - .NET tool 設定（`PackAsTool` / `ToolCommandName`）
 
